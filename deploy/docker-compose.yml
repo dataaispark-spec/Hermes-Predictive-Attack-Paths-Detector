@@ -1,0 +1,53 @@
+# Docker Compose: Hermes Agent gateway + Neo4j for SkandaShield-style Bots
+# Usage:
+#   cd deploy
+#   docker compose up -d
+# Then point Hermes MCP config at the Neo4j service and create the Bots.
+
+services:
+  neo4j:
+    image: neo4j:5.26-community
+    container_name: skandashield-neo4j
+    restart: unless-stopped
+    ports:
+      - "7474:7474"   # HTTP browser
+      - "7687:7687"   # Bolt
+    environment:
+      NEO4J_AUTH: neo4j/skandashield-change-me
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "skandashield-change-me", "RETURN 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  hermes:
+    image: nousresearch/hermes-agent:latest
+    container_name: skandashield-hermes
+    restart: unless-stopped
+    command: ["gateway", "run"]
+    ports:
+      - "8642:8642"   # gateway API / health
+    volumes:
+      - ${HOME}/.hermes:/opt/data
+      # Optional: mount custom MCP servers or skills
+      # - ../mcp-servers:/opt/mcp-servers:ro
+    environment:
+      # Override or extend via host ~/.hermes/.env
+      - HERMES_TELEMETRY=disabled
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    # Uncomment if you want the Hermes process itself to use Docker-in-Docker
+    # for its terminal.backend (requires careful security review)
+    # privileged: true
+    # volumes:
+    #   - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  neo4j_data:
+  neo4j_logs:
