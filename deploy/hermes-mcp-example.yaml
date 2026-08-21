@@ -1,0 +1,27 @@
+# Example fragment for ~/.hermes/config.yaml
+# Merge the mcp_servers section into your existing config.
+
+mcp_servers:
+  neo4j:
+    command: "uvx"
+    args: ["mcp-neo4j-cypher"]
+    env:
+      NEO4J_URI: "bolt://neo4j:7687"          # when Hermes runs in the same compose network
+      # NEO4J_URI: "bolt://localhost:7687"    # when Hermes runs on host
+      NEO4J_USERNAME: "neo4j"
+      NEO4J_PASSWORD: "skandashield-change-me"
+    tools:
+      include: ["get_neo4j_schema", "read_neo4j_cypher", "write_neo4j_cypher"]
+      resources: false
+      prompts: false
+
+  nuclei:
+    command: "python"
+    args: ["/opt/mcp-servers/nuclei-mcp/server.py"]   # adjust path
+    # or use stdio from a venv
+    tools:
+      include: ["nuclei_scan"]
+      resources: false
+      prompts: false
+
+  # Add more wrappers (BloodHound, ThreatMapper, Jira, etc.) following the same pattern
