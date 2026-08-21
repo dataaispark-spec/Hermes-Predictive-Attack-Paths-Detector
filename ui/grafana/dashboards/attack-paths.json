@@ -1,0 +1,53 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Top Attack Paths by Score",
+      "type": "table",
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 0},
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "query": "MATCH (p:AttackPath) RETURN p.id AS path_id, p.score AS score, p.description AS description, p.status AS status ORDER BY p.score DESC LIMIT 25"
+        }
+      ]
+    },
+    {
+      "title": "Open High-Severity Findings on Internet-Facing Assets",
+      "type": "table",
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 10},
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "query": "MATCH (a:Asset {internet_facing: true})-[:HAS_VULN]->(f:Finding) WHERE f.severity IN ['critical','high'] AND f.status = 'open' RETURN a.name, f.cve, f.title, f.epss, f.kev ORDER BY f.epss DESC LIMIT 50"
+        }
+      ]
+    },
+    {
+      "title": "Choke Points (nodes in multiple high-score paths)",
+      "type": "table",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20},
+      "targets": [
+        {
+          "refId": "A",
+          "rawQuery": true,
+          "query": "MATCH (p:AttackPath)-[:INCLUDES]->(n) WHERE p.score > 0.7 WITH n, count(p) AS pathCount WHERE pathCount > 2 RETURN labels(n) AS labels, n.name AS name, pathCount ORDER BY pathCount DESC LIMIT 20"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["skandashield", "attack-path"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "title": "SkandaShield Attack Paths",
+  "uid": "skandashield-attack-paths",
+  "version": 1
+}
