@@ -1,0 +1,45 @@
+# Extended Docker Compose: Neo4j + OPA + MCP Policy Gateway + Hermes
+# Usage:
+#   cd deploy
+#   docker compose -f docker-compose.yml -f docker-compose.opa.yml up -d
+
+services:
+  opa:
+    image: openpolicyagent/opa:0.69.0
+    container_name: skandashield-opa
+    restart: unless-stopped
+    command:
+      - "run"
+      - "--server"
+      - "--addr=0.0.0.0:8181"
+      - "--log-level=info"
+      - "/policies"
+    volumes:
+      - ../policies:/policies:ro
+    ports:
+      - "8181:8181"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8181/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mcp-gateway:
+    build:
+      context: ../mcp-gateway
+      dockerfile: Dockerfile
+    container_name: skandashield-mcp-gateway
+    restart: unless-stopped
+    environment:
+      OPA_URL: "http://opa:8181/v1/data/skandashield/authz"
+      OPA_TIMEOUT: "2.0"
+    ports:
+      - "8080:8080"
+    depends_on:
+      opa:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
