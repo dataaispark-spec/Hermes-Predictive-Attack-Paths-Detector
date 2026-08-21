@@ -1,0 +1,24 @@
+# Optional UI / observability stack
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.opa.yml -f docker-compose.ui.yml up -d
+
+services:
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: skandashield-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: skandashield-change-me
+      GF_INSTALL_PLUGINS: grafana-neo4j-datasource
+    volumes:
+      - ../ui/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../ui/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - neo4j
+
+volumes:
+  grafana_data:
