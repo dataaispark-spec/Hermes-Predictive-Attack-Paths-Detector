@@ -1,0 +1,13 @@
+{
+  "bots": {
+    "asset-identity-mapper": {"role": "discovery", "can_write_graph": true},
+    "vuln-triage": {"role": "triage", "can_write_graph": false},
+    "attack-path-synthesizer": {"role": "reasoning", "can_write_graph": true},
+    "anomaly-detector": {"role": "detection", "can_write_graph": false},
+    "remediation-guidance": {"role": "guidance", "can_write_graph": false, "requires_human_approval": true}
+  },
+  "environments": {
+    "production": {"require_human_approval_for_tickets": true},
+    "staging": {"require_human_approval_for_tickets": false}
+  }
+}
