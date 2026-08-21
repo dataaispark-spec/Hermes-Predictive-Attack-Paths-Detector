@@ -10,13 +10,13 @@ This document records how the remaining gaps from the Architecture Analysis (sec
 | Harden Nuclei MCP | Partial | Skeleton exists; rate-limit / template allow-list still TODO |
 | Enforce MCP tool filtering | Closed | Example configs use `tools.include` |
 | Remediation propose-only | Closed | SOUL.md + OPA rule requiring `human_approved` |
-| Policy engine between Bots and tools | **Closed** | OPA + MCP Gateway skeleton + starter Rego |
+| Policy engine between Bots and tools | **Closed** | OPA + MCP Gateway + starter Rego |
 
 ## P1 – Functional Completeness
 
 | Gap | Status | Artefact / Action |
 |-----|--------|-------------------|
-| Real collectors (BloodHound, ThreatMapper…) | Open | MCP pattern ready; implementations still needed |
+| Real collectors (BloodHound, cloud inventory, ThreatMapper) | **Closed (skeletons)** | `mcp-servers/bloodhound-mcp`, `cloud-inventory-mcp`, `threatmapper-mcp` |
 | Expand Neo4j schema (temporal, path materialisation) | Partial | schema.cypher + examples.cypher provide foundation |
 | Validation gate before “actionable” | Partial | OPA can enforce; optional LangGraph still recommended |
 
@@ -24,7 +24,7 @@ This document records how the remaining gaps from the Architecture Analysis (sec
 
 | Gap | Status | Artefact / Action |
 |-----|--------|-------------------|
-| Observability | Partial | Gateway emits `[AUDIT]` lines; full OTel still TODO |
+| Observability | **Closed (console + OTLP-ready)** | Gateway emits OTel traces/metrics + `[AUDIT]` lines |
 | Neo4j HA | Open | Operator decision (Aura / Cluster) |
 | Scheduled routines | Documented | Hermes routines/cron; not yet pre-populated |
 
@@ -34,12 +34,13 @@ This document records how the remaining gaps from the Architecture Analysis (sec
 |-----|--------|-------------------|
 | LangGraph / Temporal coordinator | Open | Recommended hybrid remains valid |
 | Policy engine (OPA) | **Closed** | Full starter package + gateway |
-| UI / Grafana for attack paths | Open | Future work |
+| UI / Grafana for attack paths | **Closed** | `ui/grafana/` + `deploy/docker-compose.ui.yml` |
+| Full MCP protocol proxy | **Partial → upgraded** | Gateway now has authorize-then-forward `/proxy/{server}`; full stdio bridging still extendable |
 
 ## Architecture Blueprint Update
 
 ```
-[External Scanners / Cloud / AD]
+[External Scanners / Cloud / AD / BloodHound / ThreatMapper]
           |
           v
 +---------------------+ 
@@ -47,18 +48,18 @@ This document records how the remaining gaps from the Architecture Analysis (sec
 +----------+----------+
            | tools/call
            v
-+---------------------+     POST /authorize
++---------------------+     POST /authorize (+ OTel)
 |  MCP Policy Gateway |--------------------> OPA (Rego)
 +----------+----------+
            | allow only
            v
 +---------------------+ 
-|  Real MCP Servers   |  (Neo4j, Nuclei, future collectors)
+|  Real MCP Servers   |  (Neo4j, Nuclei, BloodHound, Cloud, ThreatMapper)
 +----------+----------+
            |
            v
-+---------------------+ 
-|  Neo4j Knowledge    |
++---------------------+         Grafana
+|  Neo4j Knowledge    | <------ dashboards
 |  Graph              |
 +---------------------+
 ```
@@ -67,21 +68,21 @@ This document records how the remaining gaps from the Architecture Analysis (sec
 
 | SkandaShield Capability | Coverage after gap closure |
 |-------------------------|----------------------------|
-| Continuous visibility | Partial (collectors still missing) |
-| Attack-path reasoning & scoring | Partial → stronger (OPA protects writes) |
+| Continuous visibility | Partial → stronger (collector MCP skeletons present) |
+| Attack-path reasoning & scoring | Partial → stronger (OPA + Grafana) |
 | AI-assisted prioritisation | Partial |
 | Behavioural anomaly detection | Partial |
-| Integrations | Partial (MCP + policy layer ready) |
-| Attack surface monitoring | Missing |
+| Integrations | Partial → stronger (MCP collectors + policy layer) |
+| Attack surface monitoring | Partial (cloud_internet_facing tool) |
 | Sits alongside existing tools | Covered |
 | Engineer-ready guidance | Covered + OPA-enforced human approval |
 | Predict, don’t just detect | Partial → stronger governance |
-| Live in weeks | Covered (compose + policies) |
+| Live in weeks | Covered (compose + policies + UI) |
 
-## Next recommended actions (still open)
+## Remaining recommended actions
 
-1. Implement BloodHound / cloud inventory MCP servers.
-2. Replace gateway skeleton with full MCP protocol proxy or client-side interceptor.
-3. Add OpenTelemetry exporter to the gateway.
+1. Replace collector skeletons with real API/SDK implementations (credentials via env).
+2. Extend gateway to full MCP stdio/HTTP protocol bridging if needed.
+3. Point OTel exporters at a real collector (Jaeger/Tempo/OTLP endpoint).
 4. Optional LangGraph coordinator for deterministic validate → rank → gate loops.
-5. Lightweight Grafana dashboard over Neo4j for path visualisation.
+5. Harden Nuclei MCP (template allow-list, rate limits).
