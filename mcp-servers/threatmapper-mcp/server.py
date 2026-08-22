@@ -1,83 +1,42 @@
 #!/usr/bin/env python3
-"""
-ThreatMapper (Deepfence) MCP server skeleton.
-Exposes vulnerability / threat-graph queries and normalised findings
-for ingestion by the Vuln-Triage and Attack-Path Synthesizer Bots.
-"""
-
+"""Synthetic-data MCP server: threatmapper-mcp (works offline)."""
 from __future__ import annotations
-
-import json
-import os
+import json, os
 from typing import Any
 
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent
+from mcp.server.mcpserver import MCPServer
 
-server = Server("threatmapper-mcp")
+mcp = MCPServer("threatmapper-mcp")
 
-TM_URL = os.getenv("THREATMAPPER_URL", "http://localhost:8081")
-TM_API_KEY = os.getenv("THREATMAPPER_API_KEY", "")
+MODE = os.getenv("THREATMAPPER_MODE", "synthetic").lower()
+SYNTHETIC_VULNS = [
+    {"id": "tm-v-1", "cve": "CVE-2024-1234", "title": "RCE in web framework", "severity": "critical", "cvss": 9.8, "epss": 0.91, "node": "web-prod-1"},
+    {"id": "tm-v-2", "cve": "CVE-2023-9999", "title": "SQL injection", "severity": "high", "cvss": 8.6, "epss": 0.55, "node": "api.example.com"},
+]
+SYNTHETIC_PATHS = [
+    {"id": "tm-path-1", "score": 0.89, "nodes": ["web-prod-1", "api.example.com", "prod-db"], "description": "Internet RCE to database"},
+]
+SYNTHETIC_TOPOLOGY = {"web-prod-1": {"neighbours": ["api.example.com"], "zone": "dmz"}}
 
+@mcp.tool()
+def tm_list_vulnerabilities(severity: list[str] | None = None, limit: int = 50) -> str:
+    """List prioritised vulnerabilities (synthetic)."""
+    vulns = SYNTHETIC_VULNS
+    if severity:
+        sevs = [s.lower() for s in severity]
+        vulns = [v for v in vulns if v["severity"] in sevs]
+    return json.dumps({"mode": MODE, "vulnerabilities": vulns[:limit]}, indent=2)
 
-@server.list_tools()
-async def list_tools() -> list[Tool]:
-    return [
-        Tool(
-            name="tm_list_vulnerabilities",
-            description="List prioritised vulnerabilities from ThreatMapper ThreatGraph",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "severity": {"type": "array", "items": {"type": "string"}},
-                    "limit": {"type": "integer", "default": 50},
-                },
-            },
-        ),
-        Tool(
-            name="tm_attack_paths",
-            description="Retrieve top attack paths ranked by risk-of-exploit",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "limit": {"type": "integer", "default": 20},
-                },
-            },
-        ),
-        Tool(
-            name="tm_node_topology",
-            description="Return topology / connectivity for a given node or workload",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "node_id": {"type": "string"},
-                },
-                "required": ["node_id"],
-            },
-        ),
-    ]
+@mcp.tool()
+def tm_attack_paths(limit: int = 20) -> str:
+    """Top attack paths (synthetic)."""
+    return json.dumps({"mode": MODE, "paths": SYNTHETIC_PATHS[:limit]}, indent=2)
 
-
-@server.call_tool()
-async def call_tool(name: str, arguments: dict[str, Any] | None) -> list[TextContent]:
-    args = arguments or {}
-    if name == "tm_list_vulnerabilities":
-        result = {"vulnerabilities": [], "note": "skeleton – call ThreatMapper /vulnerabilities API"}
-    elif name == "tm_attack_paths":
-        result = {"paths": [], "note": "skeleton – call ThreatMapper ThreatGraph endpoints"}
-    elif name == "tm_node_topology":
-        result = {"node_id": args.get("node_id"), "neighbours": [], "note": "skeleton"}
-    else:
-        result = {"error": f"unknown tool {name}"}
-    return [TextContent(type="text", text=json.dumps(result, indent=2))]
-
-
-async def main() -> None:
-    async with stdio_server() as (read_stream, write_stream):
-        await server.run(read_stream, write_stream, server.create_initialization_options())
-
+@mcp.tool()
+def tm_node_topology(node_id: str) -> str:
+    """Node topology (synthetic)."""
+    topo = SYNTHETIC_TOPOLOGY.get(node_id, {"neighbours": [], "zone": "unknown"})
+    return json.dumps({"mode": MODE, "node_id": node_id, **topo}, indent=2)
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    mcp.run()
