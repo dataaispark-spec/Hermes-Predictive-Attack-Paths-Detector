@@ -1,0 +1,101 @@
+# SkandaShield LLM Router configuration
+# Priority: lower number = preferred. All local endpoints are tried before cloud.
+#
+# Cyber tasks (CVE, attack path, BloodHound, etc.) prefer cyber_models lists.
+# Install local cyber models when available, e.g.:
+#   ollama create foundation-sec -f Modelfile   # from HF weights
+#   ollama pull llama3.1:8b
+
+endpoints:
+  # --- LOCAL (always preferred when healthy) ---
+  - name: ollama-local
+    kind: ollama
+    base_url: http://127.0.0.1:11434
+    local: true
+    priority: 10
+    timeout_s: 2.0
+    models:
+      - llama3.1:8b
+      - qwen2.5:14b
+      - mistral:7b
+    cyber_models:
+      # Prefer domain models when present in `ollama list`
+      - foundation-sec-instruct:8b
+      - foundation-sec:8b
+      - secgpt:7b
+      - llama3.1:8b
+
+  - name: vllm-local
+    kind: openai_compatible
+    base_url: http://127.0.0.1:8000/v1
+    local: true
+    priority: 20
+    api_key_env: VLLM_API_KEY
+    models:
+      - local-model
+    cyber_models:
+      - foundation-sec-8b-instruct
+      - local-model
+
+  - name: lmstudio-local
+    kind: openai_compatible
+    base_url: http://127.0.0.1:1234/v1
+    local: true
+    priority: 30
+    models:
+      - local-model
+    cyber_models:
+      - local-model
+
+  # Optional: LiteLLM proxy (self-hosted multi-provider gateway)
+  - name: litellm-proxy
+    kind: openai_compatible
+    base_url: http://127.0.0.1:4000
+    local: true
+    priority: 40
+    api_key_env: LITELLM_MASTER_KEY
+    models:
+      - auto
+      - gpt-4o-mini
+    cyber_models:
+      - auto
+      - claude-sonnet
+
+  # --- CLOUD (only if local unhealthy / no key needed failures) ---
+  - name: openrouter
+    kind: openrouter
+    base_url: https://openrouter.ai/api/v1
+    local: false
+    priority: 200
+    api_key_env: OPENROUTER_API_KEY
+    models:
+      - anthropic/claude-sonnet-4
+      - openai/gpt-4o
+      - google/gemini-2.5-pro
+    cyber_models:
+      - anthropic/claude-sonnet-4
+      - openai/gpt-4o
+      - deepseek/deepseek-chat
+
+  - name: anthropic
+    kind: anthropic
+    base_url: https://api.anthropic.com
+    local: false
+    priority: 210
+    api_key_env: ANTHROPIC_API_KEY
+    models:
+      - claude-sonnet-4-6
+    cyber_models:
+      - claude-sonnet-4-6
+
+  - name: openai
+    kind: openai_compatible
+    base_url: https://api.openai.com/v1
+    local: false
+    priority: 220
+    api_key_env: OPENAI_API_KEY
+    models:
+      - gpt-4o
+      - gpt-4o-mini
+    cyber_models:
+      - gpt-4o
