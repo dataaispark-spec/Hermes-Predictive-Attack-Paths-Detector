@@ -1,120 +1,53 @@
 #!/usr/bin/env python3
-"""
-External attack-surface / exposure monitoring MCP (working template).
-- Look-alike / typosquat domain checks (basic heuristics)
-- Exposure registration shaped for Neo4j
-- Placeholder for internet-facing ASM feeds
-"""
-
+"""External attack-surface MCP with synthetic ASM feed."""
 from __future__ import annotations
+import json, os
+from mcp.server.mcpserver import MCPServer
 
-import json
-import os
-from typing import Any
-
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent
-
-server = Server("external-surface-mcp")
-
-BRAND_DOMAINS = [
-    d.strip() for d in os.getenv("BRAND_DOMAINS", "example.com").split(",") if d.strip()
+mcp = MCPServer("external-surface-mcp")
+BRAND_DOMAINS = [d.strip() for d in os.getenv("BRAND_DOMAINS", "example.com,contoso.io").split(",") if d.strip()]
+SYNTHETIC_EXPOSURES = [
+    {"asset_id": "aws-ec2-i-0abc", "exposure_type": "open_port", "detail": "TCP/22 open to 0.0.0.0/0", "severity": "high"},
+    {"asset_id": "aws-s3-public-logs", "exposure_type": "public_bucket", "detail": "S3 bucket allows public list", "severity": "high"},
+    {"asset_id": "az-vm-app1", "exposure_type": "tls_weak", "detail": "TLS 1.0 enabled", "severity": "medium"},
 ]
 
-
-def _lookalike_score(candidate: str, brand: str) -> float:
+def _lookalike(candidate: str, brand: str) -> float:
     c, b = candidate.lower(), brand.lower()
-    if c == b:
-        return 0.0
-    if c.replace("0", "o").replace("1", "l") == b:
-        return 0.85
-    if abs(len(c) - len(b)) > 3:
-        return 0.1
+    if c == b: return 0.0
+    if c.replace("0", "o").replace("1", "l") == b: return 0.85
+    if abs(len(c) - len(b)) > 3: return 0.1
     common = sum(1 for ch in set(c) if ch in b)
     return min(0.95, common / max(len(b), 1) * 0.7)
 
+@mcp.tool()
+def surface_check_lookalikes(candidates: list[str], brands: list[str] | None = None) -> str:
+    """Score look-alike / typosquat risk."""
+    brands = brands or BRAND_DOMAINS
+    results = []
+    for cand in candidates:
+        best = max((_lookalike(cand, b), b) for b in brands)
+        results.append({
+            "candidate": cand, "closest_brand": best[1], "score": round(best[0], 3),
+            "risk": "high" if best[0] >= 0.7 else "medium" if best[0] >= 0.4 else "low",
+        })
+    return json.dumps(results, indent=2)
 
-@server.list_tools()
-async def list_tools() -> list[Tool]:
-    return [
-        Tool(
-            name="surface_check_lookalikes",
-            description="Score candidate domains for look-alike / typosquat risk against brand domains",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "candidates": {"type": "array", "items": {"type": "string"}},
-                    "brands": {"type": "array", "items": {"type": "string"}},
-                },
-                "required": ["candidates"],
-            },
-        ),
-        Tool(
-            name="surface_internet_facing_summary",
-            description="Summarise known internet-facing signals (placeholder for ASM feed)",
-            inputSchema={
-                "type": "object",
-                "properties": {"asset_ids": {"type": "array", "items": {"type": "string"}}},
-            },
-        ),
-        Tool(
-            name="surface_register_exposure",
-            description="Register an external exposure finding (shaped for Neo4j Finding/Asset)",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "asset_id": {"type": "string"},
-                    "exposure_type": {"type": "string"},
-                    "detail": {"type": "string"},
-                    "severity": {"type": "string", "default": "medium"},
-                },
-                "required": ["asset_id", "exposure_type", "detail"],
-            },
-        ),
-    ]
+@mcp.tool()
+def surface_internet_facing_summary(asset_ids: list[str] | None = None) -> str:
+    """Synthetic ASM exposure feed."""
+    ids = set(asset_ids or [])
+    exposures = [e for e in SYNTHETIC_EXPOSURES if not ids or e["asset_id"] in ids]
+    return json.dumps({"mode": "synthetic", "count": len(exposures), "exposures": exposures}, indent=2)
 
-
-@server.call_tool()
-async def call_tool(name: str, arguments: dict[str, Any] | None) -> list[TextContent]:
-    args = arguments or {}
-    if name == "surface_check_lookalikes":
-        candidates = args.get("candidates") or []
-        brands = args.get("brands") or BRAND_DOMAINS
-        results = []
-        for cand in candidates:
-            best = max((_lookalike_score(cand, b), b) for b in brands)
-            results.append({
-                "candidate": cand,
-                "closest_brand": best[1],
-                "score": round(best[0], 3),
-                "risk": "high" if best[0] >= 0.7 else "medium" if best[0] >= 0.4 else "low",
-            })
-        return [TextContent(type="text", text=json.dumps(results, indent=2))]
-    if name == "surface_internet_facing_summary":
-        return [TextContent(type="text", text=json.dumps({
-            "note": "Wire to real ASM / httpx / shodan feed",
-            "asset_ids": args.get("asset_ids") or [],
-            "exposures": [],
-        }, indent=2))]
-    if name == "surface_register_exposure":
-        finding = {
-            "id": f"exp-{args['asset_id']}-{args['exposure_type']}",
-            "asset_id": args["asset_id"],
-            "type": args["exposure_type"],
-            "detail": args["detail"],
-            "severity": args.get("severity", "medium"),
-            "source": "external-surface-mcp",
-        }
-        return [TextContent(type="text", text=json.dumps(finding, indent=2))]
-    return [TextContent(type="text", text=json.dumps({"error": f"unknown tool {name}"}))]
-
-
-async def main() -> None:
-    async with stdio_server() as (read_stream, write_stream):
-        await server.run(read_stream, write_stream, server.create_initialization_options())
-
+@mcp.tool()
+def surface_register_exposure(asset_id: str, exposure_type: str, detail: str, severity: str = "medium") -> str:
+    """Register an exposure finding."""
+    return json.dumps({
+        "id": f"exp-{asset_id}-{exposure_type}", "asset_id": asset_id,
+        "type": exposure_type, "detail": detail, "severity": severity,
+        "source": "external-surface-mcp",
+    }, indent=2)
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    mcp.run()
