@@ -1,15 +1,20 @@
-# Example fragment for ~/.hermes/config.yaml
-# Merge the mcp_servers section into your existing config.
+# Full example for ~/.hermes/config.yaml
+# Replace REPLACE_WITH_KIT_ROOT and CHANGE_ME before use.
+# See docs/ops/INSTALL_AND_DEPLOY.md for platform-specific steps.
+
+terminal:
+  backend: docker
+  timeout: 180
 
 mcp_servers:
   neo4j:
     command: "uvx"
     args: ["mcp-neo4j-cypher"]
     env:
-      NEO4J_URI: "bolt://neo4j:7687"          # when Hermes runs in the same compose network
-      # NEO4J_URI: "bolt://localhost:7687"    # when Hermes runs on host
+      NEO4J_URI: "bolt://localhost:7687"
+      # NEO4J_URI: "bolt://neo4j:7687"   # when Hermes is on the compose network
       NEO4J_USERNAME: "neo4j"
-      NEO4J_PASSWORD: "skandashield-change-me"
+      NEO4J_PASSWORD: "CHANGE_ME"
     tools:
       include: ["get_neo4j_schema", "read_neo4j_cypher", "write_neo4j_cypher"]
       resources: false
@@ -17,11 +22,51 @@ mcp_servers:
 
   nuclei:
     command: "python"
-    args: ["/opt/mcp-servers/nuclei-mcp/server.py"]   # adjust path
-    # or use stdio from a venv
+    args: ["REPLACE_WITH_KIT_ROOT/mcp-servers/nuclei-mcp/server.py"]
+    env:
+      NUCLEI_ALLOWED_SEVERITIES: "info,low,medium"
+      NUCLEI_RATE_LIMIT_PER_MIN: "5"
+      NUCLEI_TARGET_ALLOWLIST: "http://lab.,https://staging."
     tools:
       include: ["nuclei_scan"]
-      resources: false
-      prompts: false
 
-  # Add more wrappers (BloodHound, ThreatMapper, Jira, etc.) following the same pattern
+  bloodhound:
+    command: "python"
+    args: ["REPLACE_WITH_KIT_ROOT/mcp-servers/bloodhound-mcp/server.py"]
+    env:
+      BLOODHOUND_MODE: "synthetic"
+    tools:
+      include: ["bh_list_domains", "bh_shortest_paths_to_da", "bh_export_graph_fragment"]
+
+  cloud_inventory:
+    command: "python"
+    args: ["REPLACE_WITH_KIT_ROOT/mcp-servers/cloud-inventory-mcp/server.py"]
+    env:
+      CLOUD_MODE: "synthetic"
+    tools:
+      include: ["cloud_list_accounts", "cloud_inventory_assets", "cloud_internet_facing"]
+
+  threatmapper:
+    command: "python"
+    args: ["REPLACE_WITH_KIT_ROOT/mcp-servers/threatmapper-mcp/server.py"]
+    env:
+      THREATMAPPER_MODE: "synthetic"
+    tools:
+      include: ["tm_list_vulnerabilities", "tm_attack_paths", "tm_node_topology"]
+
+  anomaly:
+    command: "python"
+    args: ["REPLACE_WITH_KIT_ROOT/mcp-servers/anomaly-detector-mcp/server.py"]
+    env:
+      ANOMALY_WINDOW: "20"
+      ANOMALY_Z_THRESHOLD: "3.0"
+    tools:
+      include: ["anomaly_observe", "anomaly_list_recent", "anomaly_seed_baseline"]
+
+  external_surface:
+    command: "python"
+    args: ["REPLACE_WITH_KIT_ROOT/mcp-servers/external-surface-mcp/server.py"]
+    env:
+      BRAND_DOMAINS: "example.com,contoso.io"
+    tools:
+      include: ["surface_check_lookalikes", "surface_internet_facing_summary", "surface_register_exposure"]
