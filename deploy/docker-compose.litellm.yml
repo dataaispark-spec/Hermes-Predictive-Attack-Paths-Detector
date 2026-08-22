@@ -1,0 +1,26 @@
+# Optional multi-provider LLM gateway (LiteLLM)
+# Use when you want one OpenAI-compatible endpoint in front of many clouds + local.
+#
+#   cd deploy && docker compose -f docker-compose.litellm.yml up -d
+#   export OPENAI_API_BASE=http://127.0.0.1:4000
+#   # or point Hermes custom base_url / llm-router litellm-proxy endpoint
+#
+# Docs: https://docs.litellm.ai/
+
+services:
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: skandashield-litellm
+    ports:
+      - "4000:4000"
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-litellm-local-change-me}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      # Ollama on host (Docker Desktop / Linux host gateway)
+      OLLAMA_API_BASE: ${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+    volumes:
+      - ../llm-router/litellm_config.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "1"]
+    restart: unless-stopped
