@@ -1,4 +1,4 @@
-# Hermes SkandaShield Bots - Predictive Attack Paths Detection 
+# Hermes SkandaShield Bots - Predictive Attack Paths 
 
 **Open-source starter kit to build an AI-assisted cybersecurity platform** that finds *how* attackers could reach critical systems — not just more alerts — using specialist AI agents, a knowledge graph, and strong safety controls.
 
