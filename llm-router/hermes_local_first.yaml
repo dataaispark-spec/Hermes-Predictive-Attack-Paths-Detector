@@ -1,0 +1,40 @@
+# Merge into ~/.hermes/config.yaml (or profile config)
+# Generated pattern: local primary, cloud fallbacks.
+# Run: python llm-router/router.py --prompt "attack path CVE" --hermes
+# to refresh recommendations after probing your machine.
+
+# --- Primary: local Ollama (edit model to match `ollama list`) ---
+model:
+  provider: custom
+  default: llama3.1:8b
+  base_url: http://127.0.0.1:11434/v1
+  # Ollama OpenAI-compatible API often needs a dummy key
+  # api_key_env: OLLAMA_API_KEY
+
+# Ordered failover when primary errors / rate-limits
+fallback_providers:
+  - provider: custom
+    model: qwen2.5:14b
+    base_url: http://127.0.0.1:11434/v1
+  - provider: openrouter
+    model: anthropic/claude-sonnet-4
+  - provider: anthropic
+    model: claude-sonnet-4-6
+
+# When using OpenRouter as primary or fallback, prefer quality providers
+provider_routing:
+  sort: throughput
+  order:
+    - anthropic
+    - google
+    - openai
+  data_collection: deny
+
+# Optional: pin cyber specialist bots to stronger / domain models
+# (Hermes Bot Mode per-profile model override)
+# profiles:
+#   attack-path-synthesizer:
+#     model:
+#       provider: custom
+#       default: foundation-sec-instruct:8b
+#       base_url: http://127.0.0.1:11434/v1
