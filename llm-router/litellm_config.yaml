@@ -1,0 +1,43 @@
+# LiteLLM proxy config — local Ollama models first, then cloud.
+# https://docs.litellm.ai/docs/proxy/configs
+
+model_list:
+  # Local via Ollama (host)
+  - model_name: local-llama
+    litellm_params:
+      model: ollama/llama3.1:8b
+      api_base: http://host.docker.internal:11434
+
+  - model_name: local-cyber
+    litellm_params:
+      model: ollama/llama3.1:8b
+      api_base: http://host.docker.internal:11434
+
+  - model_name: auto
+    litellm_params:
+      model: ollama/llama3.1:8b
+      api_base: http://host.docker.internal:11434
+
+  - model_name: claude-sonnet
+    litellm_params:
+      model: anthropic/claude-sonnet-4-6
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  - model_name: gpt-4o
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+
+  - model_name: openrouter-sonnet
+    litellm_params:
+      model: openrouter/anthropic/claude-sonnet-4
+      api_key: os.environ/OPENROUTER_API_KEY
+
+# Simple fallbacks: if local fails, try cloud aliases
+router_settings:
+  routing_strategy: simple-shuffle
+  num_retries: 2
+  timeout: 60
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
