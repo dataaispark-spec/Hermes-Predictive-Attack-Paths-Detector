@@ -5,7 +5,8 @@
 Inspired by the product direction of [SkandaShield](https://skandashield.com/platform): **predict attack paths before they are walked**, prioritise by real exploitability, and give engineers a short list of things worth fixing.
 
 > Plain-language summary: **[docs/OVERVIEW.md](docs/OVERVIEW.md)**  
-> How we differ from other platforms: **[docs/HOW_WE_DIFFER.md](docs/HOW_WE_DIFFER.md)**
+> How we differ from other platforms: **[docs/HOW_WE_DIFFER.md](docs/HOW_WE_DIFFER.md)**  
+> LLM routing (local-first + cyber models): **[docs/LLM_ROUTER.md](docs/LLM_ROUTER.md)**
 
 ---
 
@@ -22,6 +23,7 @@ This repository is a **practical blueprint and working templates** so your organ
 - **MCP tool servers** — safe connectors to scanners, cloud inventory, identity graphs, etc.
 - **OPA policies** — default-deny rules so bots cannot create tickets or run dangerous actions without approval
 - **Optional Temporal** — durable pipelines that survive crashes and wait for human approval
+- **Dynamic LLM router** — local models first, then next-best cloud; prefer cybersecurity-oriented LLMs when the task is security-related
 
 It is **not** a full commercial product. It is an **enterprise-oriented kit**: architecture, configs, synthetic demos, and clear extension points so you can pilot in weeks and harden toward production.
 
@@ -36,6 +38,7 @@ It is **not** a full commercial product. It is an **enterprise-oriented kit**: a
 | Slow triage | Specialist bots draft prioritisation and **engineer-ready** remediation guidance |
 | Risky automation | **OPA + human approval** before tickets or high-impact actions |
 | Vendor lock-in | Open components (Hermes, Neo4j, OPA, MCP, Temporal) you control |
+| LLM cost / data residency | **Local-first** routing; cloud only when local is unavailable |
 | “Where do we start?” | Docker Compose demo, seed data, and step-by-step install docs |
 
 **Who benefits:** Security / AppSec / CloudSec · Platform / SRE · Leadership · Builders learning agentic security architecture.
@@ -47,10 +50,11 @@ It is **not** a full commercial product. It is an **enterprise-oriented kit**: a
 ```
 1. COLLECT   Cloud, identity, vulns, exposure  → MCP tool servers
 2. MAP       Assets & identities & findings   → Neo4j knowledge graph
-3. REASON    Specialist Hermes Bots rank paths and anomalies
-4. GOVERN    OPA + policy gateway allow only safe / approved actions
-5. ACT       Remediation guidance; tickets only after human approval
-6. SEE       Grafana (and Bot chat) show top paths worth fixing
+3. ROUTE     Local LLM first (cyber models if security task) → else cloud
+4. REASON    Specialist Hermes Bots rank paths and anomalies
+5. GOVERN    OPA + policy gateway allow only safe / approved actions
+6. ACT       Remediation guidance; tickets only after human approval
+7. SEE       Grafana (and Bot chat) show top paths worth fixing
 ```
 
 | Bot | Job |
@@ -65,45 +69,57 @@ Optional **Temporal** workflow: collect → score path → wait for approval →
 
 ---
 
+## Dynamic LLM router (local-first + cyber preference)
+
+**Full guide:** [docs/LLM_ROUTER.md](docs/LLM_ROUTER.md)
+
+| Priority | Backend | When used |
+|----------|---------|-----------|
+| 1 | **Ollama / vLLM / LM Studio** | Healthy local inference |
+| 2 | **Cyber local models** (Foundation-Sec, SecGPT, …) | Security-related prompts |
+| 3 | **LiteLLM proxy** (optional) | Unified gateway on your network |
+| 4 | **OpenRouter / Anthropic / OpenAI** | Local unavailable or no local models |
+
+Built on existing best practice:
+
+- **Hermes** `fallback_providers` + `provider_routing` for runtime failover  
+- **LiteLLM** as optional self-hosted multi-provider proxy  
+- Thin **`llm-router/router.py`** for probe + cyber heuristic + Hermes snippet export  
+
+```bash
+python llm-router/router.py --prompt "Rank attack paths for this CVE"
+python llm-router/router.py --prompt "attack path" --hermes   # paste into Hermes config
+```
+
+Merge [llm-router/hermes_local_first.yaml](llm-router/hermes_local_first.yaml) into `~/.hermes/config.yaml` for a ready local-first chain.
+
+---
+
 ## How it is different from current platforms
 
-**Full comparison (all categories + named products):** **[docs/HOW_WE_DIFFER.md](docs/HOW_WE_DIFFER.md)**
+**Full comparison:** **[docs/HOW_WE_DIFFER.md](docs/HOW_WE_DIFFER.md)**
 
 | This kit | Typical commercial platforms |
 |----------|------------------------------|
-| **You own** agents, graph, policy, and pipelines as code | **Vendor owns** the product; you configure their console |
+| **You own** agents, graph, policy, pipelines as code | **Vendor owns** the product |
 | Specialist **Hermes bots** + **OPA default-deny** | Vendor AI copilots / closed workflows |
-| **MCP** connectors into *your* Neo4j | Connectors that feed *their* data plane |
-| MIT templates; pilot with synthetic data | Subscription SaaS; production-grade discovery day one |
-| Sits **beside** scanners, CNAPP, SIEM | Often aims to be the system of record |
+| **MCP** into *your* Neo4j | Connectors into *their* data plane |
+| **Local-first LLM** with cyber model preference | Usually cloud-only copilots |
+| MIT templates; pilot with synthetic data | Subscription SaaS day one |
 
-**We are not a replacement for** Tenable/Qualys/Rapid7 scanners, Wiz/Orca CNAPP, XM Cyber / BloodHound Enterprise path products, CyCognito EASM, or Splunk/Sentinel SIEM. Those remain excellent at discovery, detection, and enterprise CTEM.
-
-**We are different because** we open-source the *operating model*: path-first prioritisation, multi-bot reasoning, policy-gated actions, and durable approval pipelines you can audit and extend.
-
-**Categories compared in detail:**
-
-1. Vulnerability management (Tenable, Qualys, Rapid7, Microsoft Defender VM, OpenVAS, …)  
-2. CTEM / exposure platforms (Tenable One, CrowdStrike Exposure, Rapid7 Exposure Command, Microsoft SEM, Astelia, Balbix, Vulcan, …)  
-3. Attack-path / identity-path (XM Cyber, BloodHound Enterprise, Wiz graph, Orca, Cloudnosys, Stream, …)  
-4. CNAPP / CSPM (Wiz, Orca, Prisma Cloud, Lacework, Sysdig, SentinelOne Cloud, hyperscaler hubs, …)  
-5. EASM / CAASM (CyCognito, Attaxion, EdgeScan, runZero, Axonius, JupiterOne, Armis, …)  
-6. SIEM / XDR (Splunk, Sentinel, Elastic, Chronicle, Falcon, XSIAM, QRadar, …)  
-7. BAS / auto-pentest (Picus, Pentera, Cymulate, SafeBreach, AttackIQ, …)  
-8. Closed AI security copilots  
-9. SkandaShield commercial product (inspiration, not feature parity)
+Not a replacement for Tenable, Wiz, XM Cyber, BloodHound Enterprise, CyCognito, or Splunk/Sentinel — designed to work **beside** them.
 
 ---
 
 ## Benefits
 
-1. **Path-centric risk** — Chained weaknesses to critical systems, not only isolated CVEs  
+1. **Path-centric risk** — Chained weaknesses to critical systems  
 2. **Specialist agents** — Clear roles instead of one overloaded bot  
 3. **Safety by design** — Default-deny policy, tool allow-lists, human approval  
 4. **Works with what you have** — MCP adapters beside existing tools  
-5. **Demo in a day** — Synthetic collectors + seed graph + Grafana  
-6. **Enterprise docs** — Architecture, multi-OS/cloud install, operations  
-7. **Auditable automation** — Gateway, OPA, optional Temporal history  
+5. **Local-first AI** — Prefer on-prem LLMs; fall back to cloud intelligently  
+6. **Cyber LLM preference** — Domain models when the task is security-related  
+7. **Demo in a day** — Synthetic collectors + seed graph + Grafana  
 8. **Open and extensible** — MIT; synthetic today, live APIs when ready  
 
 ---
@@ -114,18 +130,21 @@ Optional **Temporal** workflow: collect → score path → wait for approval →
 |-------|--------|--------|
 | **P0 — Foundation** | Bots, Neo4j, Docker, OPA, synthetic MCP, Grafana, docs | **In repo** |
 | **P1 — Durable process** | Temporal AttackPathPipeline + approval signal | **In repo (starter)** |
+| **P1b — LLM router** | Local-first probe, cyber preference, LiteLLM optional, Hermes export | **In repo** |
 | **P2 — Live data** | Real BloodHound / cloud / ThreatMapper / ASM feeds | Next |
 | **P3 — Production hardening** | Secrets, SSO, Neo4j HA, SIEM export, CI policy | Planned |
 | **P4 — Scale & UX** | MCP proxy, richer path UI, continuous re-score | Planned |
-| **P5 — Ecosystem** | Optional A2A, deeper routines | Future |
+| **P5 — Ecosystem** | Optional A2A, deeper routines, per-Bot auto model pin | Future |
 
 ---
 
 ## What is in the box
 
 - 5 Bot `SOUL.md` templates · Neo4j schema + seed + Grafana  
-- Hardened Nuclei MCP + synthetic collectors (BloodHound, cloud, ThreatMapper, anomaly, surface)  
-- OPA + MCP Policy Gateway · Temporal starter · Full documentation  
+- Hardened Nuclei MCP + synthetic collectors  
+- OPA + MCP Policy Gateway · Temporal starter  
+- **LLM router** (`llm-router/`) + optional LiteLLM Compose  
+- Full documentation  
 
 ---
 
@@ -141,6 +160,7 @@ cd ..
 pip install mcp pydantic neo4j
 python scripts/seed_graph.py --password <neo4j-password>
 python scripts/mock_test_collectors.py
+python llm-router/router.py --prompt "attack path CVE"   # optional model probe
 ```
 
 ### Optional Temporal
@@ -150,7 +170,13 @@ cd deploy && docker compose -f docker-compose.temporal.yml up -d
 cd .. && pip install -r temporal/requirements.txt && export PYTHONPATH=$(pwd)
 python temporal/worker.py
 python temporal/scripts/start_pipeline.py --wait-hours 0.01
-python temporal/scripts/signal_approve.py --workflow-id <id>
+```
+
+### Optional LiteLLM multi-provider proxy
+
+```bash
+cd deploy && docker compose -f docker-compose.litellm.yml up -d
+# http://127.0.0.1:4000
 ```
 
 ---
@@ -160,13 +186,13 @@ python temporal/scripts/signal_approve.py --workflow-id <id>
 | Doc | Content |
 |-----|---------|
 | **[docs/OVERVIEW.md](docs/OVERVIEW.md)** | Plain-language purpose & value |
-| **[docs/HOW_WE_DIFFER.md](docs/HOW_WE_DIFFER.md)** | **vs VM, CTEM, CNAPP, path, SIEM, BAS platforms** |
+| **[docs/HOW_WE_DIFFER.md](docs/HOW_WE_DIFFER.md)** | vs VM, CTEM, CNAPP, path, SIEM, BAS |
+| **[docs/LLM_ROUTER.md](docs/LLM_ROUTER.md)** | **Local-first + cyber LLM routing** |
 | **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** | Logical & physical architecture |
 | **[docs/ops/INSTALL_AND_DEPLOY.md](docs/ops/INSTALL_AND_DEPLOY.md)** | Install (Linux / macOS / WSL2 / cloud) |
 | **[docs/TEMPORAL.md](docs/TEMPORAL.md)** | Durable pipelines |
 | [docs/ops/OPERATIONS.md](docs/ops/OPERATIONS.md) | Day-to-day operations |
 | [docs/OPA_INTEGRATION.md](docs/OPA_INTEGRATION.md) | Policy engine |
-| [docs/GAP_CLOSURE.md](docs/GAP_CLOSURE.md) | Capability mapping |
 | [temporal/README.md](temporal/README.md) | Temporal runbook |
 
 ---
@@ -176,6 +202,7 @@ python temporal/scripts/signal_approve.py --workflow-id <id>
 - Prefer `terminal.backend: docker`  
 - MCP tool filtering + OPA **default-deny**  
 - Tickets need `human_approved` / Temporal signal  
+- Prefer **local LLMs** for sensitive graph/identity context  
 - Rotate default passwords; keep data-plane ports private  
 
 ## License
