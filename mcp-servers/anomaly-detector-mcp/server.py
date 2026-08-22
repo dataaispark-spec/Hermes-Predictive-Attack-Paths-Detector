@@ -1,34 +1,33 @@
 #!/usr/bin/env python3
-"""
-Minimal behavioural anomaly detector MCP (working template).
-- Maintains simple per-entity baselines (count / rate) in memory
-- Flags deviations above configurable z-score / threshold
-- Emits Anomaly-shaped records for the shared graph
-This is a statistical starter, not a full UEBA product.
-"""
-
+"""Anomaly detector MCP with optional Neo4j persistence (synthetic baselines work offline)."""
 from __future__ import annotations
-
-import json
-import math
-import os
-import time
+import json, math, os, time
 from collections import defaultdict
-from typing import Any
+from mcp.server.mcpserver import MCPServer
 
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent
-
-server = Server("anomaly-detector-mcp")
-
-_baselines: dict[str, list[float]] = defaultdict(list)
+mcp = MCPServer("anomaly-detector-mcp")
 WINDOW = int(os.getenv("ANOMALY_WINDOW", "20"))
 Z_THRESHOLD = float(os.getenv("ANOMALY_Z_THRESHOLD", "3.0"))
-_recent_anomalies: list[dict] = []
+NEO4J_URI = os.getenv("ANOMALY_NEO4J_URI", "")
+NEO4J_USER = os.getenv("ANOMALY_NEO4J_USER", "neo4j")
+NEO4J_PASSWORD = os.getenv("ANOMALY_NEO4J_PASSWORD", "")
+_baselines: dict[str, list[float]] = defaultdict(list)
+_recent: list[dict] = []
+_driver = None
 
+def _driver():
+    global _driver
+    if not NEO4J_URI or not NEO4J_PASSWORD:
+        return None
+    if _driver is None:
+        try:
+            from neo4j import GraphDatabase
+            _driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+        except Exception:
+            return None
+    return _driver
 
-def _zscore(values: list[float], current: float) -> float:
+def _zscore(values, current):
     if len(values) < 5:
         return 0.0
     mean = sum(values) / len(values)
@@ -36,73 +35,49 @@ def _zscore(values: list[float], current: float) -> float:
     std = math.sqrt(var) if var > 0 else 1e-6
     return abs(current - mean) / std
 
+@mcp.tool()
+def anomaly_seed_baseline(entity_id: str, metric: str, values: list[float]) -> str:
+    """Seed baseline values for demos."""
+    key = f"{entity_id}:{metric}"
+    _baselines[key] = values[-WINDOW:]
+    return json.dumps({"ok": True, "key": key, "n": len(_baselines[key])})
 
-@server.list_tools()
-async def list_tools() -> list[Tool]:
-    return [
-        Tool(
-            name="anomaly_observe",
-            description="Record an observation for an entity and return whether it is anomalous",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "entity_id": {"type": "string"},
-                    "metric": {"type": "string"},
-                    "value": {"type": "number"},
-                    "timestamp": {"type": "number"},
-                },
-                "required": ["entity_id", "metric", "value"],
-            },
-        ),
-        Tool(
-            name="anomaly_list_recent",
-            description="List recent anomalies (from in-memory buffer)",
-            inputSchema={
-                "type": "object",
-                "properties": {"limit": {"type": "integer", "default": 20}},
-            },
-        ),
-    ]
+@mcp.tool()
+def anomaly_observe(entity_id: str, metric: str, value: float, timestamp: float | None = None) -> str:
+    """Record observation; flag anomaly by z-score. Optionally persists to Neo4j."""
+    key = f"{entity_id}:{metric}"
+    history = _baselines[key]
+    z = _zscore(history, value)
+    history.append(value)
+    if len(history) > WINDOW:
+        history.pop(0)
+    is_anom = z >= Z_THRESHOLD
+    record = {
+        "entity_id": entity_id, "metric": metric, "value": value,
+        "zscore": round(z, 3), "is_anomaly": is_anom,
+        "observed_at": timestamp or time.time(),
+        "persist_neo4j": bool(_driver()),
+    }
+    if is_anom:
+        _recent.append(record)
+        d = _driver()
+        if d:
+            try:
+                with d.session() as s:
+                    s.run(
+                        "MERGE (n:Anomaly {id: $id}) SET n.entity_id=$entity_id, n.metric=$metric, n.value=$value, n.zscore=$zscore, n.observed_at=$observed_at",
+                        id=f"anom-{entity_id}-{int(record['observed_at'])}",
+                        entity_id=entity_id, metric=metric, value=value,
+                        zscore=record["zscore"], observed_at=record["observed_at"],
+                    )
+            except Exception:
+                pass
+    return json.dumps(record, indent=2)
 
-
-@server.call_tool()
-async def call_tool(name: str, arguments: dict[str, Any] | None) -> list[TextContent]:
-    args = arguments or {}
-    if name == "anomaly_observe":
-        entity = args["entity_id"]
-        metric = args["metric"]
-        value = float(args["value"])
-        key = f"{entity}:{metric}"
-        history = _baselines[key]
-        z = _zscore(history, value)
-        history.append(value)
-        if len(history) > WINDOW:
-            history.pop(0)
-        is_anom = z >= Z_THRESHOLD
-        record = {
-            "entity_id": entity,
-            "metric": metric,
-            "value": value,
-            "zscore": round(z, 3),
-            "is_anomaly": is_anom,
-            "observed_at": args.get("timestamp") or time.time(),
-        }
-        if is_anom:
-            _recent_anomalies.append(record)
-            if len(_recent_anomalies) > 200:
-                _recent_anomalies.pop(0)
-        return [TextContent(type="text", text=json.dumps(record, indent=2))]
-    if name == "anomaly_list_recent":
-        limit = int(args.get("limit", 20))
-        return [TextContent(type="text", text=json.dumps(_recent_anomalies[-limit:], indent=2))]
-    return [TextContent(type="text", text=json.dumps({"error": f"unknown tool {name}"}))]
-
-
-async def main() -> None:
-    async with stdio_server() as (read_stream, write_stream):
-        await server.run(read_stream, write_stream, server.create_initialization_options())
-
+@mcp.tool()
+def anomaly_list_recent(limit: int = 20) -> str:
+    """List recent anomalies."""
+    return json.dumps(_recent[-limit:], indent=2)
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    mcp.run()
