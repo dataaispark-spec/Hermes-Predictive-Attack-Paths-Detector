@@ -4,6 +4,8 @@
 
 Inspired by the product direction of [SkandaShield](https://skandashield.com/platform): **predict attack paths before they are walked**, prioritise by real exploitability, and give engineers a short list of things worth fixing.
 
+> Plain-language summary: **[docs/OVERVIEW.md](docs/OVERVIEW.md)**
+
 ---
 
 ## Purpose of this repository
@@ -142,6 +144,7 @@ python temporal/scripts/signal_approve.py --workflow-id <id>
 
 | Doc | Content |
 |-----|---------|
+| **[docs/OVERVIEW.md](docs/OVERVIEW.md)** | Plain-language purpose, value, roadmap |
 | **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** | Logical & physical architecture |
 | **[docs/ops/INSTALL_AND_DEPLOY.md](docs/ops/INSTALL_AND_DEPLOY.md)** | Install on Linux / macOS / WSL2 / cloud |
 | **[docs/TEMPORAL.md](docs/TEMPORAL.md)** | Durable pipelines |
