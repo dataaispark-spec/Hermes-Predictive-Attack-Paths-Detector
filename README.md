@@ -2,32 +2,35 @@
 
 Deployment kit for building a **SkandaShield-style AI-Enabled Cybersecurity Platform** using **Hermes Agent + Bot Mode** + **OPA policy engine**.
 
-This repository provides:
+## What you get
 
-- Sample `SOUL.md` templates for 5 specialised Bots
-- Minimal Neo4j knowledge-graph schema + useful Cypher examples
-- Skeleton MCP server for one security tool (Nuclei wrapper example)
-- Docker Compose that starts Hermes + Neo4j
-- **OPA policy engine** + starter Rego package tailored to the five Bots
-- **MCP Policy Gateway** skeleton (authorize-before-forward)
-- Gap-closure documentation and architecture updates
+- 5 specialised Bot `SOUL.md` templates
+- Neo4j schema + Cypher examples + **seed script** for demos
+- Hardened **Nuclei** MCP (rate limit, severity allow-list, audit)
+- Working **anomaly detector** and **external surface / look-alike** MCP templates
+- Collector MCP skeletons (BloodHound, cloud inventory, ThreatMapper)
+- OPA policy engine + Rego unit tests
+- MCP Policy Gateway (authorize + OTel)
+- Grafana attack-path dashboards
+- Full **operations guide**: [docs/ops/OPERATIONS.md](docs/ops/OPERATIONS.md)
 
 ## Quick Start
 
-1. Install Hermes Agent (CLI or Docker) – see [official docs](https://hermes-agent.nousresearch.com/)
+1. Install [Hermes Agent](https://hermes-agent.nousresearch.com/)
 2. Clone this repo
-3. Copy the `bots/*/SOUL.md` files into the corresponding Hermes profiles
-4. Start the base stack:
+3. Start stack:
    ```bash
    cd deploy
-   docker compose up -d
+   docker compose -f docker-compose.yml -f docker-compose.opa.yml -f docker-compose.ui.yml up -d
    ```
-5. (Recommended) Start OPA + Policy Gateway:
+4. Seed demo data:
    ```bash
-   docker compose -f docker-compose.yml -f docker-compose.opa.yml up -d
+   pip install neo4j
+   python scripts/seed_graph.py --password <neo4j-password>
    ```
-6. Configure MCP servers in `~/.hermes/config.yaml` (see `deploy/hermes-mcp-example.yaml`)
-7. Create the five Bots and point high-impact tools through the policy gateway
+5. Copy `bots/*/SOUL.md` into Hermes Bot profiles
+6. Wire MCP servers in `~/.hermes/config.yaml` (see ops guide)
+7. Open Grafana http://localhost:3000 — dashboard **SkandaShield Attack Paths**
 
 ## Bots
 
@@ -37,23 +40,24 @@ This repository provides:
 | `vuln-triage` | Ingest, deduplicate and prioritise vulnerability findings |
 | `attack-path-synthesizer` | Build and rank multi-hop attack paths |
 | `anomaly-detector` | Behavioural baseline learning and deviation detection |
-| `remediation-guidance` | Produce engineer-ready tickets and fix guidance (gated by OPA) |
+| `remediation-guidance` | Engineer-ready guidance (OPA-gated human approval) |
 
-## Policy Engine (OPA)
+## Documentation
 
-- Policies live in `policies/skandashield.rego`
-- Gateway skeleton: `mcp-gateway/`
-- Full guide: [docs/OPA_INTEGRATION.md](docs/OPA_INTEGRATION.md)
-- Gap closure status: [docs/GAP_CLOSURE.md](docs/GAP_CLOSURE.md)
+| Doc | Content |
+|-----|---------|
+| [docs/ops/OPERATIONS.md](docs/ops/OPERATIONS.md) | **How to run and operate the full kit** |
+| [docs/OPA_INTEGRATION.md](docs/OPA_INTEGRATION.md) | OPA + gateway setup |
+| [docs/GAP_CLOSURE.md](docs/GAP_CLOSURE.md) | Gap status vs SkandaShield platform |
+| [docs/COLLECTORS_AND_UI.md](docs/COLLECTORS_AND_UI.md) | Collectors and Grafana notes |
 
-## Safety Notes
+## Safety
 
-- Always run tool execution with `terminal.backend: docker` (or stricter)
-- Use MCP tool filtering (`include` / `exclude`) aggressively
-- Keep human approval gates for ticket creation (enforced by OPA)
-- Never give Bots unrestricted write access to production systems without review
-- Change the Neo4j password before any real deployment
+- `terminal.backend: docker`
+- MCP tool filtering + OPA default-deny
+- Ticket creation requires `human_approved: true`
+- Rotate all default passwords before shared use
 
 ## License
 
-MIT – use freely, improve, and contribute back.
+MIT
