@@ -6,7 +6,8 @@ Deployment kit for a **SkandaShield-style AI cybersecurity platform** using **He
 
 | Doc | Content |
 |-----|---------|
-| **[docs/ops/INSTALL_AND_DEPLOY.md](docs/ops/INSTALL_AND_DEPLOY.md)** | **Full step-by-step install, config, customisation, Linux/macOS/WSL2, AWS/Azure/GCP/K8s** |
+| **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** | **End-to-end architecture: logical & physical design, components, connections, enterprise tiers** |
+| **[docs/ops/INSTALL_AND_DEPLOY.md](docs/ops/INSTALL_AND_DEPLOY.md)** | Full step-by-step install, config, Linux/macOS/WSL2, AWS/Azure/GCP/K8s |
 | [docs/ops/OPERATIONS.md](docs/ops/OPERATIONS.md) | Day-to-day operations & module map |
 | [docs/OPA_INTEGRATION.md](docs/OPA_INTEGRATION.md) | OPA + policy gateway |
 | [docs/GAP_CLOSURE.md](docs/GAP_CLOSURE.md) | Coverage vs SkandaShield platform |
@@ -23,25 +24,16 @@ Deployment kit for a **SkandaShield-style AI cybersecurity platform** using **He
 ## Quick Start (local demo)
 
 ```bash
-# 1. Install Hermes: https://hermes-agent.nousresearch.com/
-# 2. Clone
 git clone https://github.com/dataaispark-spec/hermes-skandashield-bots.git
 cd hermes-skandashield-bots
-
-# 3. Edit passwords in deploy/docker-compose.yml and deploy/docker-compose.ui.yml
-
-# 4. Start stack
+# Edit passwords in deploy/docker-compose*.yml
 cd deploy
 docker compose -f docker-compose.yml -f docker-compose.opa.yml -f docker-compose.ui.yml up -d
-
-# 5. Seed + test
 cd ..
 pip install mcp pydantic neo4j
 python scripts/seed_graph.py --password <neo4j-password>
 python scripts/mock_test_collectors.py
-
-# 6. Full Hermes MCP config + Bots: see INSTALL_AND_DEPLOY.md sections 5–6
-# 7. Grafana: http://localhost:3000
+# Full Hermes config + Bots: docs/ops/INSTALL_AND_DEPLOY.md sections 5-6
 ```
 
 ## Bots
