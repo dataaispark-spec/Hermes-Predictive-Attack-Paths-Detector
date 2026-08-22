@@ -1,87 +1,42 @@
 #!/usr/bin/env python3
-"""
-Cloud inventory MCP server (skeleton).
-Supports AWS / Azure / GCP read-only inventory collection and normalisation
-into Asset nodes for the shared Neo4j graph.
-"""
-
+"""Synthetic-data MCP server: cloud-inventory-mcp (works offline)."""
 from __future__ import annotations
-
-import json
+import json, os
 from typing import Any
 
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent
+from mcp.server.mcpserver import MCPServer
 
-server = Server("cloud-inventory-mcp")
+mcp = MCPServer("cloud-inventory-mcp")
 
+MODE = os.getenv("CLOUD_MODE", "synthetic").lower()
+SYNTHETIC_ACCOUNTS = [
+    {"provider": "aws", "account_id": "123456789012", "name": "prod-main"},
+    {"provider": "azure", "account_id": "sub-aaaa-bbbb", "name": "corp-subscription"},
+    {"provider": "gcp", "account_id": "proj-payments", "name": "payments-prod"},
+]
+SYNTHETIC_ASSETS = [
+    {"id": "aws-ec2-i-0abc", "name": "web-prod-1", "type": "host", "provider": "aws", "account_id": "123456789012", "internet_facing": True, "criticality": "high"},
+    {"id": "aws-s3-public-logs", "name": "company-public-logs", "type": "storage", "provider": "aws", "account_id": "123456789012", "internet_facing": True, "criticality": "medium"},
+    {"id": "aws-rds-prod", "name": "prod-db", "type": "host", "provider": "aws", "account_id": "123456789012", "internet_facing": False, "criticality": "critical"},
+]
 
-@server.list_tools()
-async def list_tools() -> list[Tool]:
-    return [
-        Tool(
-            name="cloud_list_accounts",
-            description="List configured cloud accounts / subscriptions / projects",
-            inputSchema={"type": "object", "properties": {"provider": {"type": "string", "enum": ["aws", "azure", "gcp", "all"]}}},
-        ),
-        Tool(
-            name="cloud_inventory_assets",
-            description="Collect compute, storage, network and identity assets for a given account",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "provider": {"type": "string"},
-                    "account_id": {"type": "string"},
-                    "regions": {"type": "array", "items": {"type": "string"}},
-                },
-                "required": ["provider", "account_id"],
-            },
-        ),
-        Tool(
-            name="cloud_internet_facing",
-            description="Return assets that appear internet-facing (public IPs, open security groups, public buckets)",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "provider": {"type": "string"},
-                    "account_id": {"type": "string"},
-                },
-                "required": ["provider", "account_id"],
-            },
-        ),
-    ]
+@mcp.tool()
+def cloud_list_accounts(provider: str = "all") -> str:
+    """List cloud accounts (synthetic)."""
+    accounts = SYNTHETIC_ACCOUNTS if provider == "all" else [a for a in SYNTHETIC_ACCOUNTS if a["provider"] == provider]
+    return json.dumps({"mode": MODE, "accounts": accounts}, indent=2)
 
+@mcp.tool()
+def cloud_inventory_assets(provider: str, account_id: str) -> str:
+    """Collect assets for account (synthetic)."""
+    assets = [a for a in SYNTHETIC_ASSETS if a["provider"] == provider and a["account_id"] == account_id]
+    return json.dumps({"mode": MODE, "provider": provider, "account_id": account_id, "assets": assets}, indent=2)
 
-@server.call_tool()
-async def call_tool(name: str, arguments: dict[str, Any] | None) -> list[TextContent]:
-    args = arguments or {}
-    if name == "cloud_list_accounts":
-        result = {"accounts": [], "note": "skeleton – configure provider credentials via env"}
-    elif name == "cloud_inventory_assets":
-        result = {
-            "provider": args.get("provider"),
-            "account_id": args.get("account_id"),
-            "assets": [],
-            "note": "skeleton – emit Asset-shaped records for Neo4j upsert",
-        }
-    elif name == "cloud_internet_facing":
-        result = {
-            "provider": args.get("provider"),
-            "account_id": args.get("account_id"),
-            "internet_facing": [],
-            "note": "skeleton",
-        }
-    else:
-        result = {"error": f"unknown tool {name}"}
-    return [TextContent(type="text", text=json.dumps(result, indent=2))]
-
-
-async def main() -> None:
-    async with stdio_server() as (read_stream, write_stream):
-        await server.run(read_stream, write_stream, server.create_initialization_options())
-
+@mcp.tool()
+def cloud_internet_facing(provider: str, account_id: str) -> str:
+    """Internet-facing assets (synthetic)."""
+    facing = [a for a in SYNTHETIC_ASSETS if a["provider"] == provider and a["account_id"] == account_id and a["internet_facing"]]
+    return json.dumps({"mode": MODE, "internet_facing": facing}, indent=2)
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    mcp.run()
