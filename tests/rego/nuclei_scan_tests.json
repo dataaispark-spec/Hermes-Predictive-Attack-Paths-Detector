@@ -1,0 +1,64 @@
+{
+  "cases": [
+    {
+      "name": "vuln-triage safe severity lab",
+      "input": {
+        "bot": "vuln-triage",
+        "tool": "nuclei_scan",
+        "args": { "severity": ["info", "low"], "targets": ["https://scanme.sh"] },
+        "context": { "scope": "lab", "human_approved": false }
+      },
+      "expect_allow": true
+    },
+    {
+      "name": "wrong bot denied",
+      "input": {
+        "bot": "remediation-guidance",
+        "tool": "nuclei_scan",
+        "args": { "severity": ["low"] },
+        "context": { "scope": "lab" }
+      },
+      "expect_allow": false
+    },
+    {
+      "name": "critical without human denied",
+      "input": {
+        "bot": "vuln-triage",
+        "tool": "nuclei_scan",
+        "args": { "severity": ["critical"] },
+        "context": { "scope": "lab", "human_approved": false }
+      },
+      "expect_allow": false
+    },
+    {
+      "name": "critical with human allowed",
+      "input": {
+        "bot": "vuln-triage",
+        "tool": "nuclei_scan",
+        "args": { "severity": ["critical"] },
+        "context": { "scope": "lab", "human_approved": true }
+      },
+      "expect_allow": true
+    },
+    {
+      "name": "production scope needs human",
+      "input": {
+        "bot": "asset-identity-mapper",
+        "tool": "nuclei_scan",
+        "args": { "severity": ["low"] },
+        "context": { "scope": "production", "human_approved": false }
+      },
+      "expect_allow": false
+    },
+    {
+      "name": "production with human allowed",
+      "input": {
+        "bot": "asset-identity-mapper",
+        "tool": "nuclei_scan",
+        "args": { "severity": ["low"] },
+        "context": { "scope": "production", "human_approved": true }
+      },
+      "expect_allow": true
+    }
+  ]
+}
