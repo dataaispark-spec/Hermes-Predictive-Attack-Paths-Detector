@@ -10,12 +10,14 @@ CREATE CONSTRAINT anomaly_id IF NOT EXISTS FOR (n:Anomaly) REQUIRE n.id IS UNIQU
 
 CREATE INDEX asset_type IF NOT EXISTS FOR (a:Asset) ON (a.type);
 CREATE INDEX finding_severity IF NOT EXISTS FOR (f:Finding) ON (f.severity);
+CREATE INDEX finding_source IF NOT EXISTS FOR (f:Finding) ON (f.source);
 CREATE INDEX path_score IF NOT EXISTS FOR (p:AttackPath) ON (p.score);
 
 // Example node properties (documentation only – Neo4j is schema-optional)
 // Asset: id, name, type (host|container|k8s|cloud|app|api), env, internet_facing, criticality, first_seen, last_seen, source
 // Identity: id, name, type (user|service|role|group), provider (ad|entra|aws|gcp), privileged
-// Finding: id, cve, title, severity, cvss, epss, kev, status, first_seen, last_seen
+// Finding: id, cve, title, severity, cvss, epss, kev, status, first_seen, last_seen,
+//          source ('nuclei'|…), template_id, matched_at  ← nuclei-mcp upsert
 // AttackPath: id, score, likelihood, impact, description, status, created_at
 // Anomaly: id, type, severity, description, observed_at
 
