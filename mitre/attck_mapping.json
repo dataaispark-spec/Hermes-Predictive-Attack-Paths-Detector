@@ -1,0 +1,110 @@
+{
+  "version": "1.3.0",
+  "frameworks": {
+    "enterprise": "MITRE ATT&CK Enterprise",
+    "atlas": "MITRE ATLAS (AI/ML)"
+  },
+  "hop_types": {
+    "public_exploit": {
+      "attck": ["T1190"],
+      "name": "Exploit Public-Facing Application",
+      "notes": "Internet-facing app/API foothold"
+    },
+    "valid_account": {
+      "attck": ["T1078"],
+      "name": "Valid Accounts",
+      "notes": "Stolen/ leaked service or user credentials"
+    },
+    "token_abuse": {
+      "attck": ["T1550", "T1528"],
+      "name": "Abuse Alternate Authentication / Steal Application Access Token",
+      "notes": "API keys, OAuth, agent service tokens"
+    },
+    "command_execution": {
+      "attck": ["T1059"],
+      "name": "Command and Scripting Interpreter",
+      "notes": "Agent shell / code-exec tool"
+    },
+    "remote_services": {
+      "attck": ["T1021"],
+      "name": "Remote Services",
+      "notes": "SSH/RDP/cloud console via agent tool"
+    },
+    "exfiltration": {
+      "attck": ["T1048", "T1567"],
+      "name": "Exfiltration",
+      "notes": "Agent reads secrets/data and sends out"
+    },
+    "account_manipulation": {
+      "attck": ["T1098"],
+      "name": "Account Manipulation",
+      "notes": "Agent with IAM write tools"
+    },
+    "lateral_service": {
+      "attck": ["T1080", "T1570"],
+      "name": "Lateral tool / binary transfer",
+      "notes": "Agent installs or invokes tools on other systems"
+    },
+    "prompt_injection": {
+      "attck": ["T1059"],
+      "atlas": ["AML.T0051", "AML.T0054"],
+      "name": "LLM Prompt Injection / Jailbreak",
+      "notes": "Hostile content in tools, tickets, logs, RAG"
+    },
+    "tool_poisoning": {
+      "atlas": ["AML.T0010", "AML.T0011"],
+      "attck": ["T1195"],
+      "name": "ML/Tool Supply Chain / Poisoned Tool",
+      "notes": "Compromised MCP server or malicious tool descriptor"
+    },
+    "agent_impersonation": {
+      "attck": ["T1078", "T1134"],
+      "atlas": ["AML.T0051"],
+      "name": "Agent identity / privilege abuse",
+      "notes": "Spoofed agent role or elevated system prompt"
+    },
+    "rag_poisoning": {
+      "atlas": ["AML.T0043", "AML.T0020"],
+      "name": "Poisoned knowledge / RAG corpus",
+      "notes": "Malicious docs retrieved into agent context"
+    },
+    "mcp_tool_abuse": {
+      "attck": ["T1059", "T1106"],
+      "atlas": ["AML.T0051"],
+      "name": "Abuse MCP / agent tool",
+      "notes": "Excessive tool scope: neo4j write, ticket create, shell"
+    },
+    "credential_from_memory": {
+      "attck": ["T1555", "T1552"],
+      "name": "Credentials from agent memory / config",
+      "notes": "Secrets in system prompts, env, vector memory"
+    },
+    "ticket_or_change": {
+      "attck": ["T1078", "T1098"],
+      "name": "Abuse change / ticketing privileges",
+      "notes": "Agent creates privileged change tickets"
+    }
+  },
+  "agent_path_templates": [
+    {
+      "id": "agent-path-prompt-to-secrets",
+      "hops": ["prompt_injection", "mcp_tool_abuse", "exfiltration"],
+      "description": "User/content injection → agent tool call → secret store read / exfil"
+    },
+    {
+      "id": "agent-path-tool-poison-to-shell",
+      "hops": ["tool_poisoning", "command_execution", "lateral_service"],
+      "description": "Poisoned MCP tool → shell execution → lateral movement"
+    },
+    {
+      "id": "agent-path-a2a-privilege",
+      "hops": ["agent_impersonation", "token_abuse", "account_manipulation"],
+      "description": "Low-priv agent influences high-priv agent → IAM change"
+    },
+    {
+      "id": "agent-path-rag-to-ticket",
+      "hops": ["rag_poisoning", "prompt_injection", "ticket_or_change"],
+      "description": "Poisoned RAG → malicious remediation ticket / change"
+    }
+  ]
+}
