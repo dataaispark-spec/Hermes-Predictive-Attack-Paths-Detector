@@ -1,57 +1,23 @@
-# Overview — What this project is (plain language)
+# Overview — Hermes Predictive Attack Paths Detector
 
-## In one sentence
-
-An **open starter kit** to build AI-assisted security operations that prioritise **attack paths to critical systems**, with specialist bots, a knowledge graph, and strict approval controls.
+**Canonical repository:** [https://github.com/dataaispark-spec/Hermes-Predictive-Attack-Paths-Detector](https://github.com/dataaispark-spec/Hermes-Predictive-Attack-Paths-Detector)
 
 ## Purpose
 
-Help organisations move from “endless alert queues” to a **small, prioritised list of weaknesses that actually chain into real risk** — with technology they can inspect, extend, and run themselves.
+Security teams drown in scanner output and identity sprawl. Most tools report *what is wrong in isolation*. This kit focuses on **chained, realistic attack paths** — including paths that go through **AI agents and MCP tools** — and labels hops with **MITRE ATT&CK** and **ATLAS**.
 
-## How it helps the organisation
+## Value
 
-- **Security teams** — path-based priorities and draft remediation for engineers  
-- **Platform teams** — sits *beside* SIEM/scanners via MCP  
-- **Leadership** — fewer high-impact paths, not more raw findings  
-- **Builders** — reference architecture for agentic security  
+- Rank a **short list** of paths to crown jewels, not raw CVE volume  
+- Unify cloud, identity, vuln, and **agent** context in **Neo4j**  
+- Specialist **Hermes** bots instead of one generic chatbot  
+- **OPA** + human approval before high-impact automation  
+- Open components you control (no mandatory SaaS path engine)
 
-## How it works
+## Scope honesty
 
-1. **Collect** inventory and findings (synthetic for demos; real APIs later)  
-2. **Store** in Neo4j (assets, identities, findings, paths)  
-3. **Reason** with five Hermes specialist bots  
-4. **Govern** with OPA (default deny; tickets need human approval)  
-5. **Show** top paths in Grafana and Bot chat  
-6. **Optionally** Temporal for durable collect → approve → ticket  
+Synthetic collectors and agent inventory by default. Production requires live integrations (BloodHound, cloud APIs, agent registries). This is a **pilot / architecture kit**, not a finished commercial APA platform.
 
-## How it differs from current platforms
+## Name history
 
-**Full detail + named product lists:** [HOW_WE_DIFFER.md](./HOW_WE_DIFFER.md)
-
-Short version:
-
-| Others | This kit |
-|--------|----------|
-| Commercial VM / CTEM / CNAPP / EASM / SIEM **products** | Open **architecture kit** you own |
-| Vendor discovery and dashboards | Path reasoning + bots + policy-as-code |
-| You configure their platform | You extend MCP, Rego, SOUL.md, Temporal |
-
-Not a replacement for Tenable, Wiz, XM Cyber, CyCognito, Splunk, etc. — designed to **work with** them and add transparent agentic prioritisation.
-
-## Benefits (short list)
-
-- Path-first prioritisation  
-- Specialist agents with clear roles  
-- Safety gates (policy + human approval)  
-- Open stack, no forced vendor platform  
-- Fast demo with seed data  
-- Enterprise install & architecture docs  
-- Extensible MCP + Temporal roadmap  
-
-## Roadmap (summary)
-
-| Now | Next | Later |
-|-----|------|-------|
-| Bots, graph, OPA, synthetic collectors, Grafana, Temporal starter | Live BloodHound/cloud/ThreatMapper feeds | HA, SSO, SIEM export, richer UI |
-
-See [README.md](../README.md) and [ARCHITECTURE.md](./ARCHITECTURE.md).
+Previously published as `hermes-skandashield-bots`. Functionality continues under **Hermes-Predictive-Attack-Paths-Detector**.

@@ -1,4 +1,5 @@
-// Neo4j schema — Hermes SkandaShield Bots (+ AI agent attack paths)
+// Neo4j schema — Hermes Predictive Attack Paths Detector
+// Repo: https://github.com/dataaispark-spec/Hermes-Predictive-Attack-Paths-Detector
 // Run against a fresh DB or use as reference
 
 // --- Classic constraints ---

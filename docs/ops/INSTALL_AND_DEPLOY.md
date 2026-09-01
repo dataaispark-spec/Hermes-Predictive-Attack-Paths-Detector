@@ -1,65 +1,52 @@
-# Full Installation, Configuration, Customisation & Deployment Guide
+# Install and deploy
 
-Step-by-step for **Linux, macOS, WSL2, Docker, and cloud (AWS / Azure / GCP)**. Replace passwords and paths before production.
+**Repo:** [https://github.com/dataaispark-spec/Hermes-Predictive-Attack-Paths-Detector](https://github.com/dataaispark-spec/Hermes-Predictive-Attack-Paths-Detector)
 
-Full detail for Hermes/MCP/Neo4j/OPA remains as in prior revisions; this file includes the **Temporal** section at the end.
-
----
-
-## 1–11. Core stack
-
-Follow sections in the repository history / parallel docs:
-
-1. Prerequisites (Docker Compose v2, Python 3.11+)
-2. Install Hermes Agent
-3. Clone kit + venv
-4. `docker compose -f docker-compose.yml -f docker-compose.opa.yml -f docker-compose.ui.yml up -d`
-5. Full `~/.hermes/config.yaml` (see `deploy/hermes-mcp-example.yaml`)
-6. Create five Bots from `bots/*/SOUL.md`
-7. `python scripts/seed_graph.py` + `mock_test_collectors.py`
-8. Customisation (synthetic→live, Nuclei, OPA)
-9. Cloud (AWS/Azure/GCP/K8s)
-10. Troubleshooting table
-11. Production checklist
-
-One-shot local demo:
+## Clone
 
 ```bash
-cd hermes-skandashield-bots
-pip install mcp pydantic neo4j
+git clone https://github.com/dataaispark-spec/Hermes-Predictive-Attack-Paths-Detector.git
+cd Hermes-Predictive-Attack-Paths-Detector
+```
+
+> Old name `hermes-skandashield-bots` redirects only if GitHub still has a redirect; always prefer the URL above.
+
+## Platforms
+
+| Environment | Notes |
+|-------------|--------|
+| Linux | Recommended for Docker Compose production-like pilots |
+| macOS | Docker Desktop; allocate enough RAM for Neo4j |
+| WSL2 | Use Linux containers; store repo on Linux filesystem |
+| Cloud VM | Open only UI/gateway ports you need; keep Bolt private |
+
+## Minimal (no Docker)
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install neo4j pydantic mcp   # as needed
+python mitre/mapper.py --list-hops
+python scripts/detect_agent_attack_paths.py
+```
+
+## Docker stack
+
+```bash
 cd deploy
+# Change default passwords first
 docker compose -f docker-compose.yml -f docker-compose.opa.yml -f docker-compose.ui.yml up -d
-cd ..
-python scripts/seed_graph.py --password YourStrongPasswordHere
 ```
 
-Day-to-day: [OPERATIONS.md](./OPERATIONS.md).
+Overlays: `docker-compose.temporal.yml`, `docker-compose.litellm.yml`.
 
----
+## Hermes
 
-## 12. Temporal durable pipeline (optional)
+Install [Hermes Agent](https://github.com/NousResearch/hermes-agent) via official docs, enable Bot Mode, load `bots/*/SOUL.md`, attach MCP servers from `deploy/hermes-mcp-example.yaml`.
 
-Crash-safe **collect → path score → human approval → ticket**:
+## Post-install checks
 
 ```bash
-# Start Temporal + UI
-cd deploy
-docker compose -f docker-compose.temporal.yml up -d
-# UI http://localhost:8088  |  gRPC localhost:7233
-
-# Worker + demo (repo root)
-cd ..
-pip install -r temporal/requirements.txt
-export PYTHONPATH=$(pwd)
-python temporal/worker.py &npython temporal/scripts/start_pipeline.py --wait-hours 0.01
-# Approve:
-python temporal/scripts/signal_approve.py --workflow-id <id from output>
-python temporal/scripts/query_status.py --workflow-id <id> --wait-result
+python scripts/detect_agent_attack_paths.py
+python scripts/seed_graph.py --password '<pw>'   # if Neo4j up
+bash scripts/run_rego_tests.sh                   # if opa CLI present
 ```
-
-Details: [../TEMPORAL.md](../TEMPORAL.md) and [../../temporal/README.md](../../temporal/README.md).
-
-| Port | Service |
-|------|---------|
-| 7233 | Temporal frontend |
-| 8088 | Temporal Web UI |
