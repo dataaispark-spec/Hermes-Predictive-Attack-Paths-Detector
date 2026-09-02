@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "assets": [
+    {"id": "asset-web-1", "name": "www.example.com", "internet_facing": true, "criticality": "high"},
+    {"id": "asset-api-1", "name": "api.example.com", "internet_facing": true, "criticality": "critical"},
+    {"id": "asset-db-1", "name": "prod-db-01", "internet_facing": false, "criticality": "critical"},
+    {"id": "asset-vault-1", "name": "secrets-vault", "internet_facing": false, "criticality": "critical"}
+  ],
+  "agents": [
+    {
+      "id": "agent-support-bot",
+      "name": "Customer Support Agent",
+      "privileges": "medium",
+      "internet_facing": true,
+      "tools": ["rag_search", "ticket_create", "crm_read"]
+    },
+    {
+      "id": "agent-devops-bot",
+      "name": "DevOps Deploy Agent",
+      "privileges": "critical",
+      "internet_facing": false,
+      "tools": ["shell", "secrets_read", "kubectl"]
+    }
+  ],
+  "findings": [
+    {"id": "find-cve-1", "title": "RCE in web framework", "severity": "critical", "on_asset": "asset-web-1"},
+    {"id": "find-agent-1", "title": "User-facing agent accepts untrusted RAG", "severity": "high", "on_agent": "agent-support-bot"}
+  ],
+  "edges": [
+    {"from": "asset-web-1", "to": "asset-api-1", "type": "CAN_REACH", "evidence_id": "find-cve-1"},
+    {"from": "asset-api-1", "to": "asset-db-1", "type": "CAN_REACH", "evidence_id": "edge-api-db-1"},
+    {"from": "agent-support-bot", "to": "asset-vault-1", "type": "AGENT_TOOL_ACCESS", "evidence_id": "find-agent-1", "hop_hint": "prompt_injection"},
+    {"from": "agent-devops-bot", "to": "asset-vault-1", "type": "AGENT_TOOL_ACCESS", "evidence_id": "edge-devops-vault-1", "hop_hint": "mcp_tool_abuse"}
+  ]
+}
